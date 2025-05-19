@@ -1,4 +1,4 @@
-export const OLD_JAPANESE_JAPANESE_NUMERICS = {
+export const OLD_JAPANESE_NUMERICS = {
   // 0
   零: '〇',
   // 1
@@ -44,7 +44,7 @@ export const OLD_JAPANESE_JAPANESE_NUMERICS = {
   萬: '万',
 } as const;
 
-export const JAPANESE_JAPANESE_NUMERICS = {
+export const JAPANESE_NUMERICS = {
   〇: 0,
   一: 1,
   二: 2,
@@ -66,3 +66,24 @@ export const JAPANESE_JAPANESE_NUMERICS = {
   '８': 8,
   '９': 9,
 } as const;
+
+export const JAPANESE_LARGE_NUMERICS = { 万: 10000, 千: 1000, 百: 100, 十: 10 };
+
+const _TMP = {
+  億: 8,
+  兆: 12,
+  京: 16,
+  垓: 20,
+  𥝱: 24,
+  穣: 28,
+  溝: 32,
+  澗: 36,
+  正: 40,
+  載: 44,
+  極: 48,
+  恒河沙: 52,
+  阿僧祇: 56,
+  那由多: 60,
+  不可思議: 64,
+  無量大数: 68,
+};
