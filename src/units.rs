@@ -35,11 +35,18 @@ pub(crate) const KANJI_DIGITS: [char; 10] =
 pub(crate) const DAIJI_DIGITS: [char; 10] =
     ['零', '壱', '弐', '参', '四', '五', '六', '七', '八', '九'];
 
+/// 大字（インデックスが値）。すべての数字を大字にする（出力形式 `DaijiFull` 用）。
+pub(crate) const DAIJI_FULL_DIGITS: [char; 10] =
+    ['零', '壱', '弐', '参', '肆', '伍', '陸', '漆', '捌', '玖'];
+
 /// 十・百・千（標準）。
 pub(crate) const SMALL_UNITS: [char; 3] = ['十', '百', '千'];
 
 /// 十・百・千（大字）。法令で使うのは 拾 のみ。
 pub(crate) const DAIJI_SMALL_UNITS: [char; 3] = ['拾', '百', '千'];
+
+/// 十・百・千（大字フル）。古い大字表記の 佰・阡 を使う。
+pub(crate) const DAIJI_FULL_SMALL_UNITS: [char; 3] = ['拾', '佰', '阡'];
 
 // --- 入力（漢数字 → 数値）用 ---------------------------------------------------
 
@@ -144,17 +151,19 @@ mod tests {
         assert_eq!(digit_value('漆'), Some(7));
         assert_eq!(digit_value('十'), None);
         // 出力用の表と入力用の関数が食い違っていないこと
-        for (value, (&kanji, &daiji)) in (0..).zip(KANJI_DIGITS.iter().zip(&DAIJI_DIGITS)) {
-            assert_eq!(digit_value(kanji), Some(value));
-            assert_eq!(digit_value(daiji), Some(value));
+        for digits in [&KANJI_DIGITS, &DAIJI_DIGITS, &DAIJI_FULL_DIGITS] {
+            for (value, &kanji) in (0..).zip(digits) {
+                assert_eq!(digit_value(kanji), Some(value));
+            }
         }
     }
 
     #[test]
     fn small_units() {
-        for (power, (&unit, &daiji)) in (1..).zip(SMALL_UNITS.iter().zip(&DAIJI_SMALL_UNITS)) {
-            assert_eq!(small_unit_power(unit), Some(power));
-            assert_eq!(small_unit_power(daiji), Some(power));
+        for units in [&SMALL_UNITS, &DAIJI_SMALL_UNITS, &DAIJI_FULL_SMALL_UNITS] {
+            for (power, &unit) in (1..).zip(units) {
+                assert_eq!(small_unit_power(unit), Some(power));
+            }
         }
     }
 
@@ -167,6 +176,8 @@ mod tests {
         assert_eq!(match_large_unit("那由他"), Some((15, "那由他".len())));
         // 𥝱 は UTF-8 で 4 バイト
         assert_eq!(match_large_unit("𥝱"), Some((6, 4)));
+        // 大字フル（DaijiFull）で書き出す 萬 も読める
+        assert_eq!(match_large_unit("萬"), Some((1, "萬".len())));
         assert_eq!(match_large_unit("円"), None);
         assert_eq!(match_large_unit(""), None);
     }

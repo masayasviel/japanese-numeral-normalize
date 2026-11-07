@@ -1,11 +1,12 @@
 //! ラウンドトリップテスト: どの形式で書き出しても、読み直すと元の値に戻ること。
 
-use japanese_numeral_normalize::{KanjiFormat, Numeral};
+use japanese_numeral_normalize::{KanjiFormat, KanjiOptions, Numeral};
 
-const FORMATS: [KanjiFormat; 4] = [
+const FORMATS: [KanjiFormat; 5] = [
     KanjiFormat::Standard,
     KanjiFormat::Positional,
     KanjiFormat::Daiji,
+    KanjiFormat::DaijiFull,
     KanjiFormat::Mixed,
 ];
 
@@ -83,5 +84,25 @@ fn integers_survive_numeral() {
         let n = Numeral::from(v);
         assert_eq!(i64::try_from(n), Ok(v));
         assert_eq!(n.to_string(), v.to_string());
+    }
+}
+
+/// `一千万` のように千の前の「一」を書けて、それも読み直せること。
+#[test]
+fn explicit_one_before_thousand_roundtrips() {
+    let options = KanjiOptions {
+        explicit_one_before_thousand: true,
+        ..KanjiOptions::default()
+    };
+    let mut rng = XorShift(0x2025_1108);
+    for _ in 0..2_000 {
+        let v = i64::from_ne_bytes(rng.next().to_ne_bytes());
+        let n = Numeral::from(v);
+        let kanji = n.to_kanji_with(options);
+        assert_eq!(
+            kanji.parse::<Numeral>(),
+            Ok(n),
+            "{n} -> {kanji:?} (explicit_one_before_thousand)"
+        );
     }
 }

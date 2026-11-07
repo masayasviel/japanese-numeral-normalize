@@ -56,7 +56,8 @@
 
 改ざん防止のため契約書や祝儀袋で使う字。`壱 弐 参 拾 萬` など。
 法令（例: 戸籍法施行規則 第 31 条）で使うのは **壱・弐・参・拾** の 4 字。
-読み取り側は異体字も含めて広く受け付け、書き出し側は法令の 4 字を使う。
+読み取り側は異体字も含めて広く受け付け、書き出し側は既定では法令の 4 字を使う。
+祝儀袋のように全部を大字にする書き方も `DaijiFull` として選べる（6. 出力を参照）。
 
 ## 4. 内部表現: `Numeral`
 
@@ -158,10 +159,22 @@ pub enum ParseErrorKind {
 | `Standard` | 一万二千三百四十五 | 千万 | 〇 | 十百千の前の「一」は省略、万以上の前の「一」は書く |
 | `Positional` | 一二三四五 | 一〇〇〇〇〇〇〇 | 〇 | 位取り式 |
 | `Daiji` | 壱万弐千参百四拾五 | 壱千万 | 零 | 壱弐参拾を使い、十百千の前にも必ず「壱」 |
+| `DaijiFull` | 壱萬弐阡参佰肆拾伍 | 壱阡萬 | 零 | 数字・単位のすべてを大字にする（祝儀袋など）。数字は 零壱弐参肆伍陸漆捌玖、十百千は 拾佰阡、万は 萬 |
 | `Mixed` | 1万2345 | 1000万 | 0 | ニュース等の表記 |
 
 - 負数は先頭に `-`。
 - 表記ゆれのある単位は `𥝱` `穣` `那由多` で出力（TS 版の表に合わせる）。
+
+形式だけでは表せない細かい書き方は `KanjiOptions` で指定する（既定は
+`{ format: Standard, explicit_one_before_thousand: false }`）。`to_kanji_with` は
+`impl Into<KanjiOptions>` を受けるので、`KanjiFormat` をそのまま渡すこともできる。
+
+- `explicit_one_before_thousand`: 千の前の「一」を書く（`千万` → `一千万`）。
+  金額などで使う書き方。`Standard` にのみ効き、十・百の前には付けない
+  （`一十` `一百` はほとんど使わない）。大字系は改ざん防止のため、
+  この値にかかわらず常に「壱」を書く。内部の `UnitStyle` はこのフラグを
+  位ごとの `explicit_one: [bool; 3]`（十・百・千）として持ち、`Daiji` は
+  すべて true、オプションは千だけ true にする。
 
 ## 7. 公開 API
 
@@ -170,7 +183,11 @@ pub enum ParseErrorKind {
 let n: Numeral = "一億二千万".parse()?;      // FromStr
 n.to_string();                                // "120000000"（Display = 算用数字）
 n.to_kanji();                                 // "一億二千万"
-n.to_kanji_with(KanjiFormat::Mixed);          // "1億2000万"
+n.to_kanji_with(KanjiFormat::Mixed);          // "1億2000万"（KanjiFormat をそのまま渡せる）
+n.to_kanji_with(KanjiOptions {                // 細かい書き方は KanjiOptions
+    explicit_one_before_thousand: true,
+    ..KanjiOptions::default()
+});                                           // 1000_0000 → "一千万"
 let n = Numeral::from(-42_i64);               // From<各整数型>
 let v: i64 = n.try_into()?;                   // TryFrom<Numeral> for 各整数型
 n.is_negative(); n.is_zero(); -n; n < m;      // 比較・符号反転
@@ -210,8 +227,6 @@ examples/      CLI サンプル
 
 - 文章中の漢数字を検出・置換（geolonia/japanese-numeral の `findKanjiNumbers` 相当）。
   `正`（10^40）や `極` が普通の単語にも現れるので、別途ルール設計が必要。
-- 全部を大字にする出力（`伍阡捌佰漆萬`、Kanjize の `use_daiji` 相当）
-- `一千万` のように千の前にも「一」を書くオプション（`一十` `一百` は対象外。#11）
 - WASM / npm バインディング、crates.io 公開
 
 ## 参考

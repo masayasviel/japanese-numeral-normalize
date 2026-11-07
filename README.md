@@ -4,7 +4,7 @@
 
 - 漢数字・算用数字・その混在を読める: `二千二十五` / `二〇二五` / `1億2345万6789` / `1.5万`
 - 大字・異体字も読める: `壱萬弐千` / `伍阡捌佰` / `廿一`
-- 4 つの形式で書き出せる: `一万二千三百四十五` / `一二三四五` / `壱万弐千参百四拾五` / `1万2345`
+- 5 つの形式で書き出せる: `一万二千三百四十五` / `一二三四五` / `壱万弐千参百四拾五` / `壱萬弐阡参佰肆拾伍` / `1万2345`
 - 無量大数の位（10^72 未満）まで扱える
 - 依存クレートなし、`no_std`（`alloc` のみ）
 
@@ -45,7 +45,27 @@ docker compose run --rm dev cargo run --example convert -- 一億二千万 1.5�
 | `Standard`（既定） | 一万二千三百四十五 | 千万 | 〇 |
 | `Positional` | 一二三四五 | 一〇〇〇〇〇〇〇 | 〇 |
 | `Daiji` | 壱万弐千参百四拾五 | 壱千万 | 零 |
+| `DaijiFull` | 壱萬弐阡参佰肆拾伍 | 壱阡萬 | 零 |
 | `Mixed` | 1万2345 | 1000万 | 0 |
+
+`DaijiFull` は祝儀袋などで見られる、数字も単位もすべて大字にする書き方（数字は 零壱弐参肆伍陸漆捌玖、十百千は 拾佰阡、万は 萬）。
+
+さらに細かい書き方は `KanjiOptions` で指定する。`to_kanji_with` には `KanjiFormat` をそのまま渡してもよい。
+
+```rust
+use japanese_numeral_normalize::{KanjiOptions, Numeral};
+
+// 千の前にも「一」を書く（金額などで使う `一千万` の表記）。
+// 十・百の前には付けない（`一十` `一百` はほとんど使わない）。
+// 大字（Daiji / DaijiFull）は改ざん防止のため、この値にかかわらず常に「壱」を書く。
+let options = KanjiOptions {
+    explicit_one_before_thousand: true,
+    ..KanjiOptions::default()
+};
+assert_eq!(Numeral::from(1000).to_kanji_with(options), "一千");
+assert_eq!(Numeral::from(1000_0000).to_kanji_with(options), "一千万");
+assert_eq!(Numeral::from(1100).to_kanji_with(options), "一千百");
+```
 
 ## 不正な入力
 

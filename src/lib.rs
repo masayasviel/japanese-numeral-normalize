@@ -1,7 +1,7 @@
 //! アラビア数字 ⇔ 漢数字の相互変換ライブラリ。
 //!
 //! ```
-//! use japanese_numeral_normalize::{to_arabic, to_kanji, KanjiFormat, Numeral};
+//! use japanese_numeral_normalize::{to_arabic, to_kanji, KanjiFormat, KanjiOptions, Numeral};
 //!
 //! // 漢数字（算用数字との混在も可）→ 算用数字
 //! assert_eq!(to_arabic("二千二十五").unwrap(), "2025");
@@ -16,6 +16,13 @@
 //! let n: Numeral = "壱萬弐千".parse().unwrap();
 //! assert_eq!(n.to_kanji_with(KanjiFormat::Mixed), "1万2000");
 //! assert_eq!(i32::try_from(n), Ok(12000));
+//!
+//! // 細かい書き方は KanjiOptions で指定する（`一千万` のように千の前にも「一」を書く）
+//! let options = KanjiOptions {
+//!     explicit_one_before_thousand: true,
+//!     ..KanjiOptions::default()
+//! };
+//! assert_eq!(Numeral::from(10_000_000).to_kanji_with(options), "一千万");
 //! ```
 //!
 //! 扱える範囲は絶対値が 10^72 未満（無量大数の位まで）の整数。
@@ -37,7 +44,7 @@ mod units;
 use alloc::string::{String, ToString};
 
 pub use error::{ParseError, ParseErrorKind, TryFromNumeralError};
-pub use format::KanjiFormat;
+pub use format::{KanjiFormat, KanjiOptions};
 pub use numeral::Numeral;
 
 /// 漢数字（算用数字との混在も可）を算用数字の文字列にする。
