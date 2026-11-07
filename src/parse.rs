@@ -1,7 +1,7 @@
 //! 漢数字 → 数値。
 //!
 //! 1. 先頭の符号を読む
-//! 2. 文字列をトークン（数字・十百千・大きな単位）に分ける … [`Tokens`]
+//! 2. 文字列をトークン（数字・十百千・大きな単位・区切り）に分ける … [`Tokens`]
 //! 3. 状態機械で「節」（大きな単位で区切られたかたまり）ごとに値を組み立てる … [`Parser`]
 
 use alloc::vec::Vec;
@@ -10,7 +10,8 @@ use core::str::FromStr;
 use crate::error::{ParseError, ParseErrorKind};
 use crate::numeral::{GROUPS, Numeral};
 use crate::units::{
-    digit_value, is_minus, is_plus, match_large_unit, small_unit_power, tens_compound,
+    digit_value, is_comma, is_minus, is_plus, is_point, match_large_unit, small_unit_power,
+    tens_compound,
 };
 
 /// 扱える最大桁数（10^72 未満なので 72 桁）。
@@ -23,9 +24,11 @@ const MAX_DIGITS: usize = GROUPS * 4;
 ///
 /// let a: Numeral = "一億二千三百四十五万六千七百八十九".parse().unwrap();
 /// let b: Numeral = "1億2345万6789".parse().unwrap();
-/// let c: Numeral = "123456789".parse().unwrap();
+/// let c: Numeral = "123,456,789".parse().unwrap();
+/// let d: Numeral = "1.23456789億".parse().unwrap();
 /// assert_eq!(a, b);
 /// assert_eq!(b, c);
+/// assert_eq!(c, d);
 /// ```
 impl FromStr for Numeral {
     type Err = ParseError;
@@ -56,14 +59,16 @@ fn parse(input: &str) -> Result<Numeral, ParseError> {
     for token in Tokens::new(rest, pos) {
         let (pos, token) = token?;
         match token {
-            Token::Digit(d) => parser.digit(d, pos),
+            Token::Digit(d) => parser.digit(d, pos)?,
             Token::SmallUnit(power) => parser.small_unit(power, pos)?,
             // 廿 = 二十 なので、数字と「十」が続けて来たのと同じに扱う
             Token::TensCompound(d) => {
-                parser.digit(d, pos);
+                parser.digit(d, pos)?;
                 parser.small_unit(1, pos)?;
             }
             Token::LargeUnit(k) => parser.large_unit(k, pos)?,
+            Token::Comma => parser.comma(pos)?,
+            Token::Point => parser.point(pos)?,
         }
     }
     let groups = parser.finish(end)?;
@@ -83,6 +88,10 @@ enum Token {
     TensCompound(u8),
     /// 万・億・兆…。値は k（10^(4k)）
     LargeUnit(usize),
+    /// 桁区切り（`,` `，`）
+    Comma,
+    /// 小数点（`.` `．`）
+    Point,
 }
 
 /// 文字列を `(位置, トークン)` の列にするイテレータ。
@@ -111,6 +120,10 @@ impl Iterator for Tokens<'_> {
             (Token::TensCompound(d), c.len_utf8())
         } else if let Some((k, len)) = match_large_unit(self.rest) {
             (Token::LargeUnit(k), len)
+        } else if is_comma(c) {
+            (Token::Comma, c.len_utf8())
+        } else if is_point(c) {
+            (Token::Point, c.len_utf8())
         } else {
             self.rest = ""; // エラーの後は何も返さない
             return Some(Err(ParseError::new(
@@ -126,19 +139,27 @@ impl Iterator for Tokens<'_> {
 
 // --- 状態機械 -----------------------------------------------------------------
 
-/// 単位の付いていない数字の並び（ラン）。例: `1万2345` の `2345`
+/// 単位の付いていない数字の並び（ラン）。例: `1万2345` の `2345`、`1.5万` の `1.5`
 #[derive(Default)]
 struct Run {
     /// 先頭の位置（エラー表示用）
     start: usize,
-    /// 文字数（先頭の 0 も数える）
+    /// 整数部の文字数（先頭の 0 も数える）
     len: usize,
-    /// 先頭の 0 を除いた数字（上位から）
+    /// 整数部の、先頭の 0 を除いた数字（上位から）
     digits: Vec<u8>,
+    /// 小数点の位置（あれば）
+    point: Option<usize>,
+    /// 小数部の数字（上位から）
+    fraction: Vec<u8>,
 }
 
 impl Run {
     fn push(&mut self, d: u8, pos: usize) {
+        if self.point.is_some() {
+            self.fraction.push(d);
+            return;
+        }
         if self.len == 0 {
             self.start = pos;
         }
@@ -187,6 +208,10 @@ struct Parser {
     /// 直前に読んだ大きな単位の k。大きな単位は降順にしか現れない
     prev_large: Option<usize>,
     section: Section,
+    /// 直前に読んだ桁区切りの位置。次のトークンは数字でなければならない
+    pending_comma: Option<usize>,
+    /// 小数を含む節を確定したら true。その下の位はもう埋まっているので、後ろには何も続けられない
+    closed: bool,
 }
 
 impl Parser {
@@ -195,16 +220,66 @@ impl Parser {
             digits: [0; MAX_DIGITS],
             prev_large: None,
             section: Section::default(),
+            pending_comma: None,
+            closed: false,
         }
     }
 
     /// 数字: ランに追加するだけ。
-    fn digit(&mut self, d: u8, pos: usize) {
+    fn digit(&mut self, d: u8, pos: usize) -> Result<(), ParseError> {
+        if self.closed {
+            // 「1.5万2000」: 小数で埋まった位にさらに数字は書けない
+            return Err(ParseError::new(ParseErrorKind::MisplacedDigit, pos));
+        }
+        self.pending_comma = None;
         self.section.run.push(d, pos);
+        Ok(())
+    }
+
+    /// 桁区切り: 数字と数字の間にだけ置ける。値には影響しない。
+    fn comma(&mut self, pos: usize) -> Result<(), ParseError> {
+        let run = &self.section.run;
+        // 直前が数字（整数部）でなければ不可: 「,1」「1,,2」「千,5」「1.2,3」
+        if self.closed || run.is_empty() || run.point.is_some() || self.pending_comma.is_some() {
+            return Err(ParseError::new(ParseErrorKind::MisplacedSeparator, pos));
+        }
+        self.pending_comma = Some(pos);
+        Ok(())
+    }
+
+    /// 小数点: 十百千を含まない節で、数字の直後に 1 回だけ置ける。
+    fn point(&mut self, pos: usize) -> Result<(), ParseError> {
+        let section = &self.section;
+        if self.closed
+            || section.run.is_empty()
+            || section.run.point.is_some()
+            || section.last_small.is_some()
+            || self.pending_comma.is_some()
+        {
+            return Err(ParseError::new(ParseErrorKind::MisplacedSeparator, pos));
+        }
+        self.section.run.point = Some(pos);
+        Ok(())
+    }
+
+    /// 数字以外のトークンの直前に桁区切りがあればエラー（「1,万」「1,」）。
+    fn check_pending_comma(&self) -> Result<(), ParseError> {
+        match self.pending_comma {
+            Some(pos) => Err(ParseError::new(ParseErrorKind::MisplacedSeparator, pos)),
+            None => Ok(()),
+        }
     }
 
     /// 十・百・千: 直前の数字（なければ 1）× 10^power を小計に足す。
     fn small_unit(&mut self, power: u8, pos: usize) -> Result<(), ParseError> {
+        if self.closed {
+            return Err(ParseError::new(ParseErrorKind::MisplacedUnit, pos));
+        }
+        self.check_pending_comma()?;
+        if let Some(point) = self.section.run.point {
+            // 「1.5千」: 小数は大きな単位の前でだけ使える
+            return Err(ParseError::new(ParseErrorKind::MisplacedSeparator, point));
+        }
         // 「百千」「十十」のような順序違反
         if self.section.last_small.is_some_and(|last| power >= last) {
             return Err(ParseError::new(ParseErrorKind::MisplacedUnit, pos));
@@ -224,6 +299,10 @@ impl Parser {
 
     /// 大きな単位: いまの節を確定し、10^(4k) の位置に書き込む。
     fn large_unit(&mut self, k: usize, pos: usize) -> Result<(), ParseError> {
+        if self.closed {
+            return Err(ParseError::new(ParseErrorKind::MisplacedUnit, pos));
+        }
+        self.check_pending_comma()?;
         // 「一万二億」「一万万」のような順序違反
         if self.prev_large.is_some_and(|prev| k >= prev) {
             return Err(ParseError::new(ParseErrorKind::MisplacedUnit, pos));
@@ -244,6 +323,7 @@ impl Parser {
 
     /// 終端: 最後の節を単位なし（k = 0）として確定し、節ごとの配列にして返す。
     fn finish(mut self, end: usize) -> Result<[u16; GROUPS], ParseError> {
+        self.check_pending_comma()?;
         if !self.section.is_empty() {
             self.commit_section(0)?;
         } else if self.prev_large.is_none() {
@@ -266,6 +346,11 @@ impl Parser {
         let section = core::mem::take(&mut self.section);
         let run = &section.run;
         let shift = 4 * k;
+
+        if let (Some(point), true) = (run.point, run.fraction.is_empty()) {
+            // 「1.万」「1.」: 小数点の後ろに数字がない
+            return Err(ParseError::new(ParseErrorKind::MisplacedSeparator, point));
+        }
 
         if let Some(last) = section.last_small {
             // 十百千を含む節: 末尾の数字はその位より下に収まること（「千25」は可、「十25」は不可）
@@ -291,6 +376,25 @@ impl Parser {
                 return Err(ParseError::new(kind, run.start));
             }
             self.write(shift, &run.digits);
+
+            // 小数部: 末尾の 0 は値に影響しない（「1.50万」=「1.5万」）
+            let significant = run
+                .fraction
+                .iter()
+                .rposition(|&d| d != 0)
+                .map_or(0, |i| i + 1);
+            let fraction = &run.fraction[..significant];
+            // 10^shift 倍して整数になるのは、小数部が shift 桁以内のとき
+            // （「1.5万」= 1.5 × 10^4 は可、「1.5」= 1.5 × 10^0 は不可）
+            if fraction.len() > shift {
+                return Err(ParseError::new(ParseErrorKind::NotAnInteger, run.start));
+            }
+            for (i, &d) in fraction.iter().enumerate() {
+                self.digits[shift - 1 - i] = d;
+            }
+            if run.point.is_some() {
+                self.closed = true;
+            }
         }
         Ok(())
     }
@@ -328,6 +432,10 @@ mod tests {
             ]
         );
         assert_eq!(tokens("五不可思議"), vec![Digit(5), LargeUnit(16)]);
+        assert_eq!(
+            tokens("1,2.5"),
+            vec![Digit(1), Token::Comma, Digit(2), Token::Point, Digit(5)]
+        );
     }
 
     #[test]

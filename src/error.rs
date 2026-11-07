@@ -27,12 +27,16 @@ pub struct ParseError {
 pub enum ParseErrorKind {
     /// 入力が空、または符号だけで数字がない。
     Empty,
-    /// 数字・単位・符号のいずれでもない文字がある（例: `"十円"` の `円`）。
+    /// 数字・単位・符号・区切りのいずれでもない文字がある（例: `"十円"` の `円`）。
     InvalidCharacter(char),
     /// 単位の順序や位置が正しくない（例: `"百千"`, `"一万二億"`, `"一億万"`）。
     MisplacedUnit,
     /// 数字列がその位に収まらない（例: `"12百"`, `"十25"`, `"1万20000"`）。
     MisplacedDigit,
+    /// 桁区切り `,` や小数点 `.` の位置が正しくない（例: `",1"`, `"1,,2"`, `"1.5千"`）。
+    MisplacedSeparator,
+    /// 小数を含み、整数にならない（例: `"1.5"`, `"1.23456万"`）。
+    NotAnInteger,
     /// 表せる範囲（絶対値が 10^72 未満、つまり無量大数の位まで）を超えている。
     OutOfRange,
 }
@@ -64,6 +68,8 @@ impl fmt::Display for ParseError {
             ParseErrorKind::InvalidCharacter(c) => write!(f, "invalid character {c:?}")?,
             ParseErrorKind::MisplacedUnit => f.write_str("misplaced unit")?,
             ParseErrorKind::MisplacedDigit => f.write_str("digits do not fit in their place")?,
+            ParseErrorKind::MisplacedSeparator => f.write_str("misplaced separator")?,
+            ParseErrorKind::NotAnInteger => f.write_str("value is not an integer")?,
             ParseErrorKind::OutOfRange => f.write_str("value is out of range")?,
         }
         write!(f, " at byte {}", self.position)

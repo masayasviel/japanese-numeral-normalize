@@ -113,6 +113,34 @@ fn signs_and_whitespace() {
 }
 
 #[test]
+fn separators() {
+    check_ok(&[
+        ("1,234", "1234"),
+        ("１，２３４", "1234"),
+        ("1,234,567", "1234567"),
+        ("1,234万5,678", "12345678"),
+        ("-12,345", "-12345"),
+        // 区切り位置の 3 桁ごとは検査しない（「1,0000」のような万区切りも通す）
+        ("1,0000", "10000"),
+    ]);
+}
+
+#[test]
+fn decimals_with_large_units() {
+    check_ok(&[
+        ("1.5万", "15000"),
+        ("１．５万", "15000"),
+        ("3.14億", "314000000"),
+        ("1.50万", "15000"),
+        ("1億2.5万", "100025000"),
+        ("0.5万", "5000"),
+        ("1.0", "1"),
+        ("12.0000", "12"),
+        ("-2.5兆", "-2500000000000"),
+    ]);
+}
+
+#[test]
 fn largest_value() {
     let max = "9".repeat(72);
     check_ok(&[(&max, &max)]);
@@ -142,6 +170,25 @@ fn errors() {
         ("1億12345万", MisplacedDigit, 4),
         ("1万20000", MisplacedDigit, 4),
         ("10000無量大数", OutOfRange, 0),
+        // 桁区切り
+        (",1", MisplacedSeparator, 0),
+        ("1,,2", MisplacedSeparator, 2),
+        ("1,", MisplacedSeparator, 1),
+        ("1,万", MisplacedSeparator, 1),
+        ("千,5", MisplacedSeparator, 3),
+        ("1.2,3万", MisplacedSeparator, 3),
+        // 小数点
+        (".5万", MisplacedSeparator, 0),
+        ("1.万", MisplacedSeparator, 1),
+        ("1.", MisplacedSeparator, 1),
+        ("1..5万", MisplacedSeparator, 2),
+        ("1.5千", MisplacedSeparator, 1),
+        ("千2.5万", MisplacedSeparator, 4),
+        ("1.5万2000", MisplacedDigit, 6),
+        ("1.5万千", MisplacedUnit, 6),
+        ("1.5億3万", MisplacedDigit, 6),
+        ("1.5", NotAnInteger, 0),
+        ("1.23456万", NotAnInteger, 0),
     ]);
     let too_long = format!("1{}", "0".repeat(72));
     check_err(&[(&too_long, OutOfRange, 0)]);
