@@ -1,0 +1,19 @@
+[package]
+name = "japanese-numeral-normalize"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+description = "Convert between Arabic numerals and Japanese kanji numerals (漢数字 ⇔ アラビア数字)"
+repository = "https://github.com/masayasviel/japanese-numeral-normalize"
+readme = "README.md"
+keywords = ["japanese", "kanji", "numeral", "kansuji", "normalize"]
+categories = ["text-processing", "internationalization", "no-std"]
+
+[dependencies]
+
+[lints.rust]
+missing_docs = "warn"
+unsafe_code = "forbid"
+
+[lints.clippy]
+pedantic = { level = "warn", priority = -1 }
