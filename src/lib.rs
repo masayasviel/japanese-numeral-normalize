@@ -11,8 +11,9 @@ extern crate alloc;
 mod error;
 mod format;
 mod numeral;
+mod parse;
 mod units;
 
-pub use error::TryFromNumeralError;
+pub use error::{ParseError, ParseErrorKind, TryFromNumeralError};
 pub use format::KanjiFormat;
 pub use numeral::Numeral;
