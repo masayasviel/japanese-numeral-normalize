@@ -9,7 +9,10 @@
 extern crate alloc;
 
 mod error;
+mod format;
 mod numeral;
+mod units;
 
 pub use error::TryFromNumeralError;
+pub use format::KanjiFormat;
 pub use numeral::Numeral;

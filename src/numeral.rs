@@ -57,6 +57,11 @@ impl Numeral {
         }
     }
 
+    /// 節の配列（下位から）。
+    pub(crate) const fn groups(&self) -> &[u16; GROUPS] {
+        &self.groups
+    }
+
     /// 0 でない最上位の節の位置。0 のときは `None`。
     pub(crate) fn top_group(&self) -> Option<usize> {
         self.groups.iter().rposition(|&g| g != 0)
