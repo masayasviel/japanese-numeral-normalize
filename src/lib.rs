@@ -7,3 +7,9 @@
 #![no_std]
 
 extern crate alloc;
+
+mod error;
+mod numeral;
+
+pub use error::TryFromNumeralError;
+pub use numeral::Numeral;
