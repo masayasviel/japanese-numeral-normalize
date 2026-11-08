@@ -1,41 +1,20 @@
-# Docker だけでテスト・ビルドするための設定。手元に Rust を入れなくてよい。
+# テスト・ビルド用の Rust 環境の定義。手元に Rust を入れなくてよい。
+# 実行するコマンドは Makefile にまとめている（make lint / make test / make build）。
 #
-#   docker compose run --rm check                    # fmt / clippy / test をまとめて実行
-#   docker compose run --rm msrv                     # MSRV（Rust 1.85）でテスト
-#   docker compose run --rm dev cargo test           # 好きな cargo コマンドを実行
-#   docker compose run --rm dev cargo build --release
-#   docker compose run --rm dev cargo fmt            # 整形（ソースを書き換える）
-#   docker compose run --rm dev                      # コンテナのシェルに入る
-#
+# ソースは .:/app でマウントするので、編集してもイメージを作り直さなくてよい。
 # ビルド結果（target/）は named volume に置く。消すときは `docker compose down -v`。
 
-# stable 環境の共通設定。`x-` で始まるキーは Compose に無視されるので、
-# YAML のアンカー（&）で定義して各サービスで `<<: *rust-stable` と展開する。
-x-rust-stable: &rust-stable
-  build:
-    context: .
-    args:
-      RUST_VERSION: "1.97"
-  image: japanese-numeral-normalize:rust-1.97
-  volumes:
-    - .:/app
-    - target-stable:/app/target
-
 services:
-  dev:
-    <<: *rust-stable
-    command: bash
-
-  check:
-    <<: *rust-stable
-    command:
-      - sh
-      - -c
-      - |
-        set -e
-        cargo fmt --all --check
-        cargo clippy --all-targets -- -D warnings
-        cargo test
+  # 普段の開発に使う stable 版の Rust
+  stable:
+    build:
+      context: .
+      args:
+        RUST_VERSION: "1.97"
+    image: japanese-numeral-normalize:rust-1.97
+    volumes:
+      - .:/app
+      - target-stable:/app/target
 
   # MSRV（Cargo.toml の rust-version）でビルド・テストできることを確認する。
   # 開発は stable で行うので、1.86 以降で追加された関数や構文をうっかり使うと
@@ -50,7 +29,6 @@ services:
     volumes:
       - .:/app
       - target-msrv:/app/target
-    command: cargo test
 
 volumes:
   target-stable:
