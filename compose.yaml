@@ -37,7 +37,10 @@ services:
         cargo clippy --all-targets -- -D warnings
         cargo test
 
-  # Cargo.toml の rust-version と同じバージョンでビルド・テストできることを確認する
+  # MSRV（Cargo.toml の rust-version）でビルド・テストできることを確認する。
+  # 開発は stable で行うので、1.86 以降で追加された関数や構文をうっかり使うと
+  # stable では通っても 1.85 の利用者はビルドできなくなる。それをここで検出する。
+  # rust-version を変えたら、下の RUST_VERSION も合わせる。
   msrv:
     build:
       context: .

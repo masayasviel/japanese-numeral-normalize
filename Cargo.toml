@@ -2,6 +2,12 @@
 name = "japanese-numeral-normalize"
 version = "0.1.0"
 edition = "2024"
+# MSRV（Minimum Supported Rust Version）: このクレートが動作を保証する最小の Rust バージョン。
+# edition 2024 は Rust 1.85 以上が必要なので 1.85 にしている。
+# - これより古い Rust でビルドしようとすると、Cargo がバージョン不足のエラーを出す
+# - Clippy もこの値を読み、1.85 より新しい機能を使う書き換えは提案しない
+# - 実際に 1.85 でビルド・テストできるかは `docker compose run --rm msrv` で確かめる
+#   （変えるときは compose.yaml の msrv の RUST_VERSION も合わせる）
 rust-version = "1.85"
 description = "Convert between Arabic numerals and Japanese kanji numerals (漢数字 ⇔ アラビア数字)"
 repository = "https://github.com/masayasviel/japanese-numeral-normalize"
