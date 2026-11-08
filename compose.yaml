@@ -1,0 +1,35 @@
+# テスト・ビルド用の Rust 環境の定義。手元に Rust を入れなくてよい。
+# 実行するコマンドは Makefile にまとめている（make lint / make test / make build）。
+#
+# ソースは .:/app でマウントするので、編集してもイメージを作り直さなくてよい。
+# ビルド結果（target/）は named volume に置く。消すときは `docker compose down -v`。
+
+services:
+  # 普段の開発に使う stable 版の Rust
+  stable:
+    build:
+      context: .
+      args:
+        RUST_VERSION: "1.97"
+    image: japanese-numeral-normalize:rust-1.97
+    volumes:
+      - .:/app
+      - target-stable:/app/target
+
+  # MSRV（Cargo.toml の rust-version）でビルド・テストできることを確認する。
+  # 開発は stable で行うので、1.86 以降で追加された関数や構文をうっかり使うと
+  # stable では通っても 1.85 の利用者はビルドできなくなる。それをここで検出する。
+  # rust-version を変えたら、下の RUST_VERSION も合わせる。
+  msrv:
+    build:
+      context: .
+      args:
+        RUST_VERSION: "1.85"
+    image: japanese-numeral-normalize:rust-1.85
+    volumes:
+      - .:/app
+      - target-msrv:/app/target
+
+volumes:
+  target-stable:
+  target-msrv:
