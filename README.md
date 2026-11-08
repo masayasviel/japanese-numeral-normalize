@@ -1,25 +1,19 @@
 # japanese-numeral-normalize
 
-## Install
+アラビア数字 ⇔ 漢数字の相互変換ライブラリ（Rust）。
+
+> 作り直し中です。設計は [docs/design.md](docs/design.md) を参照してください。
+
+## 開発
 
 ```sh
-npm i
+cargo build
+cargo test
+cargo fmt
+cargo clippy --all-targets
 ```
 
-## Run
+### エディタ
 
-```sh
-npx ts-node
-```
-
-## Biome
-
-### vscode
-
-1. [Biome VS Code extension](https://marketplace.visualstudio.com/items?itemName=biomejs.biome)をインストール
-
-### IntelliJ
-
-1. biomeプラグインをインストール
-2. 設定 > 言語&フレームワーク > biome
-3. `Run ** on save` にすべてチェック
+- VS Code: [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer) を入れる
+- IntelliJ / RustRover: Rust プラグイン（RustRover は標準）
