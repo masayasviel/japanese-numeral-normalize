@@ -1,6 +1,22 @@
 # japanese-numeral-normalize
 
-アラビア数字 ⇔ 漢数字の相互変換ライブラリ。入力も出力も文字列です。
+アラビア数字 ⇔ 漢数字の相互変換ライブラリ
+
+## Requirements
+
+- Docker
+- Rust v 1.97
+
+## Run
+
+```sh
+# lint / format
+make lint
+# test
+make test
+# build
+make build
+```
 
 ## Usage
 
@@ -28,22 +44,4 @@ assert_eq!(to_kanji("10000000", KanjiFormat::ExplicitOneBeforeThousand)?, "一�
 ```sh
 # サンプル: アラビア数字は全形式の漢数字に、漢数字はアラビア数字にする
 docker compose run --rm app cargo run --example convert -- 12345 一億二千万 1.5万
-```
-
-詳細は [docs/design.md](docs/design.md) を参照。
-
-## Requirements
-
-- Docker
-- Rust v 1.97
-
-## Run
-
-```sh
-# lint / format
-make lint
-# test
-make test
-# build
-make build
 ```
