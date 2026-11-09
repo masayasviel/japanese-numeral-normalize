@@ -10,11 +10,12 @@
 
 ```sh
 make lint    # 整形（ソースを書き換える）してから clippy で lint
-make test    # stable と MSRV（Rust 1.85）の両方でテスト
+make test    # テスト
 make build   # 最適化ありでビルド（cargo build --release）
 ```
 
-- 初回はイメージの作成に少し時間がかかります
+- 公式の Rust イメージ（`rust:1.97-slim`）をそのまま使います。初回はイメージのダウンロードに少し時間がかかります
+- 公式イメージには rustfmt と clippy が入っていないため、`make lint` は実行のたびにそれらを追加します（数 MB のダウンロード）
 - ビルド結果（`target/`）は Docker の volume に置かれます。消すときは `docker compose down -v`
 - 手元に Rust がある場合は `cargo test` などを直接実行しても同じです
 

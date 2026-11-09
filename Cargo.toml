@@ -6,8 +6,7 @@ edition = "2024"
 # edition 2024 は Rust 1.85 以上が必要なので 1.85 にしている。
 # - これより古い Rust でビルドしようとすると、Cargo がバージョン不足のエラーを出す
 # - Clippy もこの値を読み、1.85 より新しい機能を使う書き換えは提案しない
-# - 実際に 1.85 でビルド・テストできるかは `make test`（compose.yaml の msrv）で確かめる
-#   （変えるときは compose.yaml の msrv の RUST_VERSION も合わせる）
+# - テスト・ビルドは stable（compose.yaml の app）だけで行い、1.85 での確認はしていない
 rust-version = "1.85"
 description = "Convert between Arabic numerals and Japanese kanji numerals (漢数字 ⇔ アラビア数字)"
 repository = "https://github.com/masayasviel/japanese-numeral-normalize"
