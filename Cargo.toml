@@ -9,9 +9,17 @@ readme = "README.md"
 
 [dependencies]
 
-[lints.rust]
+[lints]
+workspace = true
+
+# 本体（このクレート）と WASM バインディング（wasm/）のワークスペース。
+# 本体は依存なし・no_std のまま保ち、wasm-bindgen への依存は wasm/ に閉じ込める。
+[workspace]
+members = ["wasm"]
+
+[workspace.lints.rust]
 missing_docs = "warn"
 unsafe_code = "forbid"
 
-[lints.clippy]
+[workspace.lints.clippy]
 pedantic = { level = "warn", priority = -1 }

@@ -6,5 +6,28 @@ services:
       - .:/app
       - target:/app/target
 
+  # WASM のビルド・テスト用（make build-wasm / make test-wasm）。
+  # app と同じ Rust のイメージに、wasm32 ターゲット・Node.js・wasm-bindgen-cli を足す。
+  # バージョンを変えたら `docker compose build wasm` でイメージを作り直す。
+  wasm:
+    build:
+      dockerfile_inline: |
+        FROM rust:1.97-slim
+        RUN apt-get update \
+          && apt-get install -y --no-install-recommends nodejs \
+          && rm -rf /var/lib/apt/lists/*
+        RUN rustup target add wasm32-unknown-unknown \
+          && rustup component add rustfmt clippy
+        # WASM_BINDGEN_VERSION: wasm/Cargo.toml の wasm-bindgen と完全に同じバージョンにする
+        RUN cargo install wasm-bindgen-cli --version 0.2.130 --locked \
+          && rm -rf /usr/local/cargo/registry
+    working_dir: /app
+    environment:
+      # `cargo test --target wasm32-unknown-unknown` で、テストの .wasm を Node.js 上で実行する
+      CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUNNER: wasm-bindgen-test-runner
+    volumes:
+      - .:/app
+      - target:/app/target
+
 volumes:
   target:

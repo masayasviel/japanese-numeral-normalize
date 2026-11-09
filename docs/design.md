@@ -16,12 +16,12 @@
 | 項目 | 決定 | 理由 |
 | --- | --- | --- |
 | 言語 / edition | Rust 2024（rust-version 1.97） | compose の `rust:1.97-slim` に合わせる |
-| 依存クレート | なし | ロジックを全部自分で書いて学ぶ。ビルドも軽い |
-| 実行環境 | `#![no_std]` + `alloc` | `String` 以外の OS 機能は不要。将来 WASM 化しやすい |
+| 依存クレート | 本体はなし（WASM バインディングの `wasm/` だけ wasm-bindgen・js-sys に依存） | ロジックを全部自分で書いて学ぶ。ビルドも軽い。JavaScript との橋渡しは自前で書かず wasm-bindgen に任せる（[7.1](#71-javascriptwasm)） |
+| 実行環境 | `#![no_std]` + `alloc` | `String` 以外の OS 機能は不要。WASM でもそのまま動く |
 | 入出力 | 文字列 → 文字列。数値型には変換しない | 目的は表記の変換。数として計算したいときは、利用側が `to_arabic` の結果を `str::parse` すればよい |
 | 扱える範囲 | 絶対値が 10^72 未満（無量大数の位まで） | 漢数字の単位で表せる全範囲。数値型を通さず桁の並びのまま扱うので、`u128`（約 3.4×10^38）の上限を受けない |
 | エラー | `Result` で返し、原因の種類と位置を持つ | 不正入力を黙って変な数にしない |
-| テスト・ビルド | Docker Compose（公式の Rust イメージを Dockerfile なしで使う。stable のみ）を make から実行（`make lint` / `make test` / `make build`）。GitHub Actions は使わない | 手元に Rust がなくても同じ環境で実行できる |
+| テスト・ビルド | Docker Compose（公式の Rust イメージを Dockerfile なしで使う。stable のみ）を make から実行（`make lint` / `make test` / `make build`）。WASM 用は同じイメージに wasm32 ターゲット・Node.js・wasm-bindgen-cli を足したもの（compose の `dockerfile_inline`。`make build-wasm` / `make test-wasm`）。GitHub Actions は使わない | 手元に Rust がなくても同じ環境で実行できる |
 | 既存 TS 実装 | 削除（git 履歴には残る） | 一から作り直す |
 
 ## 3. 漢数字の基礎知識（実装の前提）
@@ -201,6 +201,35 @@ to_kanji("10000000", KanjiFormat::ExplicitOneBeforeThousand)?; // "一千万"
 
 公開するのは 2 つの関数と `KanjiFormat`、`ParseError` / `ParseErrorKind` だけ。
 
+### 7.1 JavaScript（WASM）
+
+本体とは別のクレート `wasm/`（`japanese-numeral-normalize-wasm`）で、wasm-bindgen を使って JavaScript に公開する。
+本体は依存なし・`no_std` のまま保ち、`#[wasm_bindgen]` は付けない。
+
+| Rust（本体） | JavaScript | 備考 |
+| --- | --- | --- |
+| `to_arabic(input)` | `toArabic(input: string): string` | |
+| `to_kanji(input, format)` | `toKanji(input: string, format?: KanjiFormat): string` | `format` を省略すると `Standard` |
+| `KanjiFormat` | `enum KanjiFormat`（`KanjiFormat.Daiji` など） | 本体の enum は別クレートなので、同じ形の enum を `wasm/` に用意して変換する |
+| `Err(ParseError)` | `Error` を投げる | 下記 |
+
+エラーは JavaScript の `Error`（`instanceof Error`）にして、次のプロパティを付ける。TypeScript の型（`ParseError` / `ParseErrorKind`）も `.d.ts` に出力する。
+
+- `name`: `"ParseError"`
+- `kind`: `ParseErrorKind` のバリアント名（`"InvalidCharacter"` など）
+- `position`: エラーの位置。**UTF-16 のインデックス**に直す（本体はバイト位置）。JavaScript の文字列は UTF-16 なので、`input.slice(position)` がそのまま使える
+  - 例: `"𥝱円"` の「円」は、バイト位置 4 → UTF-16 で 2（𥝱 はサロゲートペア）
+- `message`: 本体の `Display` のまま（位置はバイト位置で書かれる）
+
+出力は `wasm-bindgen --target web`（ES モジュール）。ブラウザは `init()`、Node.js は `initSync({ module })` で初期化する。
+
+wasm-bindgen はクレートと CLI のバージョンが完全に一致していないと動かないので、`wasm/Cargo.toml` で `=` 指定して固定し、compose の CLI と合わせる。
+
+テストは 2 種類（`make test-wasm`）:
+
+- `wasm/tests/wasm.rs`: wasm-bindgen-test。wasm32 にビルドし、wasm-bindgen-test-runner で Node.js 上で実行する。境界を越えて受け取った `Error` のプロパティ、全形式の変換、ラウンドトリップを検査する
+- `wasm/tests/js/api.test.mjs`: node:test。生成した `wasm/pkg` を利用者と同じように読み込み、関数名・引数の省略・投げられる `Error`・`input.slice(position)`・孤立サロゲート・`.d.ts` を検査する
+
 ## 8. モジュール構成
 
 ```
@@ -213,6 +242,14 @@ src/
   error.rs     ParseError
 tests/         結合テスト（表駆動・ラウンドトリップ）
 examples/      CLI サンプル
+wasm/          WASM（JavaScript）バインディング。別クレート（ワークスペースのメンバー）
+  src/
+    lib.rs     toArabic / toKanji
+    format.rs  KanjiFormat（JavaScript に公開する enum）
+    error.rs   ParseError → JavaScript の Error（kind / position）
+  tests/
+    wasm.rs           wasm-bindgen-test（Node.js 上で実行）
+    js/api.test.mjs   生成した JavaScript の API のテスト（node:test）
 ```
 
 ## 9. 実装ステップ（issue / PR）
@@ -226,12 +263,13 @@ examples/      CLI サンプル
 5. `to_arabic`: 漢数字 → アラビア数字。パーサ本体（単位式・位取り式・混在・大字・符号・エラー位置）・ラウンドトリップテスト
 6. パーサ拡張: 桁区切りと小数付き単位（`1,234万`, `1.5万`）
 7. README・CLI サンプル
+8. WASM（JavaScript）バインディングと WASM のテスト
 
 ## 10. スコープ外（将来の候補）
 
 - 文章中の漢数字を検出・置換（geolonia/japanese-numeral の `findKanjiNumbers` 相当）。
   `正`（10^40）や `極` が普通の単語にも現れるので、別途ルール設計が必要。
-- WASM / npm バインディング、crates.io 公開
+- npm への公開（package.json の生成など）、crates.io 公開
 
 ## 参考
 
