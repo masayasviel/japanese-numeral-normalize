@@ -1,6 +1,25 @@
 //! アラビア数字 ⇔ 漢数字の相互変換ライブラリ。
 //!
-//! 設計は [`docs/design.md`](https://github.com/masayasviel/japanese-numeral-normalize/blob/main/docs/design.md) を参照。
+//! 入力も出力も文字列。数値型には変換しない。
+//!
+//! ```
+//! use japanese_numeral_normalize::{to_arabic, to_kanji, KanjiFormat};
+//!
+//! // 漢数字（算用数字との混在も可）→ アラビア数字
+//! assert_eq!(to_arabic("二千二十五").unwrap(), "2025");
+//! assert_eq!(to_arabic("二〇二五").unwrap(), "2025");
+//! assert_eq!(to_arabic("1億2345万6789").unwrap(), "123456789");
+//! assert_eq!(to_arabic("1.5万").unwrap(), "15000");
+//!
+//! // アラビア数字 → 漢数字（書き方は引数で選ぶ）
+//! assert_eq!(to_kanji("12345", KanjiFormat::Standard).unwrap(), "一万二千三百四十五");
+//! assert_eq!(to_kanji("12345", KanjiFormat::Daiji).unwrap(), "壱万弐千参百四拾五");
+//! assert_eq!(to_kanji("12345", KanjiFormat::Mixed).unwrap(), "1万2345");
+//! ```
+//!
+//! 書き方の一覧は [`KanjiFormat`] を参照。扱える範囲は絶対値が 10^72 未満（無量大数の位まで）の整数。
+//! 受け付ける表記・文法の詳細は
+//! [`docs/design.md`](https://github.com/masayasviel/japanese-numeral-normalize/blob/main/docs/design.md) を参照。
 
 // 標準ライブラリ（OS 依存の機能）を使わず、`core` と `alloc`（String / Vec）だけで書く。
 // こうしておくと組み込みや WASM でもそのまま使える。
