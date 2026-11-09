@@ -247,6 +247,9 @@ mod tests {
     #[test]
     fn error_display() {
         let err = Numeral::parse_arabic("12a").unwrap_err();
-        assert_eq!(err.to_string(), "invalid character 'a' at byte 2");
+        assert_eq!(
+            err.to_string(),
+            "使えない文字「a」があります（バイト位置 2）"
+        );
     }
 }

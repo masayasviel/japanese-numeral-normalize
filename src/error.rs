@@ -64,15 +64,21 @@ impl ParseError {
 impl fmt::Display for ParseError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self.kind {
-            ParseErrorKind::Empty => f.write_str("no digits in input")?,
-            ParseErrorKind::InvalidCharacter(c) => write!(f, "invalid character {c:?}")?,
-            ParseErrorKind::MisplacedUnit => f.write_str("misplaced unit")?,
-            ParseErrorKind::MisplacedDigit => f.write_str("digits do not fit in their place")?,
-            ParseErrorKind::MisplacedSeparator => f.write_str("misplaced separator")?,
-            ParseErrorKind::NotAnInteger => f.write_str("value is not an integer")?,
-            ParseErrorKind::OutOfRange => f.write_str("value is out of range")?,
+            ParseErrorKind::Empty => f.write_str("数字がありません")?,
+            // 改行などの制御文字も見えるよう escape_debug で `\n` のように書く
+            ParseErrorKind::InvalidCharacter(c) => {
+                write!(f, "使えない文字「{}」があります", c.escape_debug())?;
+            }
+            ParseErrorKind::MisplacedUnit => f.write_str("単位の位置が正しくありません")?,
+            ParseErrorKind::MisplacedDigit => f.write_str("数字がその位に収まりません")?,
+            ParseErrorKind::MisplacedSeparator => {
+                f.write_str("桁区切りまたは小数点の位置が正しくありません")?;
+            }
+            ParseErrorKind::NotAnInteger => f.write_str("整数になりません")?,
+            ParseErrorKind::OutOfRange => f.write_str("表せる範囲を超えています")?,
         }
-        write!(f, " at byte {}", self.position)
+        // 位置は 0 始まりのバイトオフセットなので「n バイト目」とは書かない
+        write!(f, "（バイト位置 {}）", self.position)
     }
 }
 

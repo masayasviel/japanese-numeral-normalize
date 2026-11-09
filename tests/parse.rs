@@ -200,5 +200,8 @@ fn errors() {
 #[test]
 fn error_display() {
     let err = to_arabic("十円").unwrap_err();
-    assert_eq!(err.to_string(), "invalid character '円' at byte 3");
+    assert_eq!(
+        err.to_string(),
+        "使えない文字「円」があります（バイト位置 3）"
+    );
 }
