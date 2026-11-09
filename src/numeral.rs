@@ -68,43 +68,42 @@ impl Numeral {
     /// 前後の空白・先頭の符号・全角数字・桁区切り（数字と数字の間のみ）を受け付ける。
     /// 先頭の 0 は無視する（`007` は 7）。
     pub(crate) fn parse_arabic(input: &str) -> Result<Self, ParseError> {
-        let (negative, body, start) = split_sign(input);
+        let (negative, body) = split_sign(input);
 
         // 先頭の 0 を除いた数字（上位から）
         let mut significant = Vec::new();
-        // 最初の数字の位置。数字が 1 つもなければ None
-        let mut first_digit = None;
-        // 直前に読んだ桁区切りの位置。次は数字でなければならない
-        let mut pending_comma = None;
+        // 数字を 1 つでも読んだら true
+        let mut has_digit = false;
+        // 直前に桁区切りを読んだら true。次は数字でなければならない
+        let mut pending_comma = false;
 
-        for (offset, c) in body.char_indices() {
-            let pos = start + offset;
+        for c in body.chars() {
             if let Some(d) = arabic_digit_value(c) {
-                first_digit.get_or_insert(pos);
-                pending_comma = None;
+                has_digit = true;
+                pending_comma = false;
                 if !(significant.is_empty() && d == 0) {
                     significant.push(d);
                 }
             } else if is_comma(c) {
                 // 「,1」「1,,2」: 桁区切りの直前が数字でない
-                if first_digit.is_none() || pending_comma.is_some() {
-                    return Err(ParseError::new(ParseErrorKind::MisplacedSeparator, pos));
+                if !has_digit || pending_comma {
+                    return Err(ParseError::new(ParseErrorKind::MisplacedSeparator));
                 }
-                pending_comma = Some(pos);
+                pending_comma = true;
             } else {
-                return Err(ParseError::new(ParseErrorKind::InvalidCharacter(c), pos));
+                return Err(ParseError::new(ParseErrorKind::InvalidCharacter(c)));
             }
         }
 
-        if let Some(pos) = pending_comma {
+        if pending_comma {
             // 「1,」: 桁区切りの後ろに数字がない
-            return Err(ParseError::new(ParseErrorKind::MisplacedSeparator, pos));
+            return Err(ParseError::new(ParseErrorKind::MisplacedSeparator));
         }
-        let Some(first_digit) = first_digit else {
-            return Err(ParseError::new(ParseErrorKind::Empty, start + body.len()));
-        };
+        if !has_digit {
+            return Err(ParseError::new(ParseErrorKind::Empty));
+        }
         if significant.len() > MAX_DIGITS {
-            return Err(ParseError::new(ParseErrorKind::OutOfRange, first_digit));
+            return Err(ParseError::new(ParseErrorKind::OutOfRange));
         }
 
         // 上位から並んだ数字を、下位から詰め直す
@@ -134,20 +133,16 @@ impl Numeral {
 
 /// 前後の空白を除き、先頭の符号を読む。
 ///
-/// `(負か, 符号より後ろの文字列, その文字列の元の入力での位置)` を返す。
-pub(crate) fn split_sign(input: &str) -> (bool, &str, usize) {
-    // 前後の空白（全角スペースも含む）は無視する。位置は元の文字列基準で数える
-    let mut pos = input.len() - input.trim_start().len();
-    let mut rest = input.trim();
-    let mut negative = false;
+/// `(負か, 符号より後ろの文字列)` を返す。
+pub(crate) fn split_sign(input: &str) -> (bool, &str) {
+    // 前後の空白（全角スペースも含む）は無視する
+    let rest = input.trim();
     if let Some(c) = rest.chars().next()
         && (is_minus(c) || is_plus(c))
     {
-        negative = is_minus(c);
-        rest = &rest[c.len_utf8()..];
-        pos += c.len_utf8();
+        return (is_minus(c), &rest[c.len_utf8()..]);
     }
-    (negative, rest, pos)
+    (false, rest)
 }
 
 #[cfg(test)]
@@ -162,9 +157,8 @@ mod tests {
             .to_arabic()
     }
 
-    fn error(input: &str) -> (ParseErrorKind, usize) {
-        let err = Numeral::parse_arabic(input).unwrap_err();
-        (err.kind().clone(), err.position())
+    fn error(input: &str) -> ParseErrorKind {
+        Numeral::parse_arabic(input).unwrap_err().kind().clone()
     }
 
     #[test]
@@ -204,30 +198,27 @@ mod tests {
         // 先頭の 0 は桁数に数えない
         assert_eq!(arabic(&format!("{}1", "0".repeat(100))), "1");
         let too_long = format!("1{}", "0".repeat(MAX_DIGITS));
-        assert_eq!(error(&too_long), (ParseErrorKind::OutOfRange, 0));
-        assert_eq!(
-            error(&format!("-{too_long}")),
-            (ParseErrorKind::OutOfRange, 1)
-        );
+        assert_eq!(error(&too_long), ParseErrorKind::OutOfRange);
+        assert_eq!(error(&format!("-{too_long}")), ParseErrorKind::OutOfRange);
     }
 
     #[test]
     fn errors() {
         use ParseErrorKind::*;
         let cases = [
-            ("", (Empty, 0)),
-            ("   ", (Empty, 3)),
-            ("-", (Empty, 1)),
-            (" + ", (Empty, 2)),
-            ("12a", (InvalidCharacter('a'), 2)),
-            ("一", (InvalidCharacter('一'), 0)),
-            ("1万", (InvalidCharacter('万'), 1)),
-            ("1 2", (InvalidCharacter(' '), 1)),
-            ("1.5", (InvalidCharacter('.'), 1)),
-            (",1", (MisplacedSeparator, 0)),
-            ("1,,2", (MisplacedSeparator, 2)),
-            ("1,", (MisplacedSeparator, 1)),
-            ("-,1", (MisplacedSeparator, 1)),
+            ("", Empty),
+            ("   ", Empty),
+            ("-", Empty),
+            (" + ", Empty),
+            ("12a", InvalidCharacter('a')),
+            ("一", InvalidCharacter('一')),
+            ("1万", InvalidCharacter('万')),
+            ("1 2", InvalidCharacter(' ')),
+            ("1.5", InvalidCharacter('.')),
+            (",1", MisplacedSeparator),
+            ("1,,2", MisplacedSeparator),
+            ("1,", MisplacedSeparator),
+            ("-,1", MisplacedSeparator),
         ];
         for (input, expected) in cases {
             assert_eq!(error(input), expected, "input: {input:?}");
@@ -247,9 +238,6 @@ mod tests {
     #[test]
     fn error_display() {
         let err = Numeral::parse_arabic("12a").unwrap_err();
-        assert_eq!(
-            err.to_string(),
-            "使えない文字「a」があります（バイト位置 2）"
-        );
+        assert_eq!(err.to_string(), "使えない文字「a」があります");
     }
 }

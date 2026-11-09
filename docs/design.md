@@ -157,7 +157,7 @@ pub(crate) struct Numeral {
 `to_arabic` / `to_kanji` のどちらも同じエラー型を返す。
 
 ```rust
-pub struct ParseError { kind: ParseErrorKind, position: usize /* 元の文字列のバイト位置 */ }
+pub struct ParseError { kind: ParseErrorKind }
 
 pub enum ParseErrorKind {
     Empty, InvalidCharacter(char), MisplacedUnit, MisplacedDigit,

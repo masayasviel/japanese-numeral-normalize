@@ -4,20 +4,17 @@ use core::fmt;
 
 /// 入力の文字列を数として読めなかったときのエラー。
 ///
-/// [`kind`](Self::kind) で原因を、[`position`](Self::position) で
-/// 入力文字列中の位置（バイトオフセット）を取得できる。
+/// [`kind`](Self::kind) で原因を取得できる。
 ///
 /// ```
 /// use japanese_numeral_normalize::{to_arabic, ParseErrorKind};
 ///
 /// let err = to_arabic("一億万").unwrap_err();
 /// assert_eq!(err.kind(), &ParseErrorKind::MisplacedUnit);
-/// assert_eq!(err.position(), "一億".len()); // 「万」の位置
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ParseError {
     kind: ParseErrorKind,
-    position: usize,
 }
 
 /// [`ParseError`] の原因。
@@ -42,8 +39,8 @@ pub enum ParseErrorKind {
 }
 
 impl ParseError {
-    pub(crate) const fn new(kind: ParseErrorKind, position: usize) -> Self {
-        Self { kind, position }
+    pub(crate) const fn new(kind: ParseErrorKind) -> Self {
+        Self { kind }
     }
 
     /// エラーの原因。
@@ -51,36 +48,25 @@ impl ParseError {
     pub const fn kind(&self) -> &ParseErrorKind {
         &self.kind
     }
-
-    /// エラーが見つかった位置。元の入力文字列におけるバイトオフセット。
-    ///
-    /// 日本語は 1 文字が複数バイト（多くは 3 バイト）なので、文字数ではない点に注意。
-    #[must_use]
-    pub const fn position(&self) -> usize {
-        self.position
-    }
 }
 
 impl fmt::Display for ParseError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self.kind {
-            ParseErrorKind::Empty => f.write_str("数字がありません")?,
+            ParseErrorKind::Empty => f.write_str("数字がありません"),
             // 改行などの制御文字も見えるよう escape_debug で `\n` のように書く
             ParseErrorKind::InvalidCharacter(c) => {
-                write!(f, "使えない文字「{}」があります", c.escape_debug())?;
+                write!(f, "使えない文字「{}」があります", c.escape_debug())
             }
-            ParseErrorKind::MisplacedUnit => f.write_str("単位の位置が正しくありません")?,
-            ParseErrorKind::MisplacedDigit => f.write_str("数字がその位に収まりません")?,
+            ParseErrorKind::MisplacedUnit => f.write_str("単位の位置が正しくありません"),
+            ParseErrorKind::MisplacedDigit => f.write_str("数字がその位に収まりません"),
             ParseErrorKind::MisplacedSeparator => {
-                f.write_str("桁区切りまたは小数点の位置が正しくありません")?;
+                f.write_str("桁区切りまたは小数点の位置が正しくありません")
             }
-            ParseErrorKind::NotAnInteger => f.write_str("整数になりません")?,
-            ParseErrorKind::OutOfRange => f.write_str("表せる範囲を超えています")?,
+            ParseErrorKind::NotAnInteger => f.write_str("整数になりません"),
+            ParseErrorKind::OutOfRange => f.write_str("表せる範囲を超えています"),
         }
-        // 位置は 0 始まりのバイトオフセットなので「n バイト目」とは書かない
-        write!(f, "（バイト位置 {}）", self.position)
     }
 }
 
-// `core::error::Error` は Rust 1.81 から使える。no_std でも `?` で他のエラーと混ぜて扱える。
 impl core::error::Error for ParseError {}

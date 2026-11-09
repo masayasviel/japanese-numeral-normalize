@@ -12,12 +12,11 @@ fn check_ok(cases: &[(&str, &str)]) {
     }
 }
 
-/// 入力と期待するエラー（種類・バイト位置）の表を検査する。
-fn check_err(cases: &[(&str, ParseErrorKind, usize)]) {
-    for (input, kind, position) in cases {
+/// 入力と期待するエラーの種類の表を検査する。
+fn check_err(cases: &[(&str, ParseErrorKind)]) {
+    for (input, kind) in cases {
         let err = to_arabic(input).expect_err(&format!("input: {input:?} should fail"));
         assert_eq!(err.kind(), kind, "input: {input:?}");
-        assert_eq!(err.position(), *position, "input: {input:?}");
     }
 }
 
@@ -154,54 +153,51 @@ fn largest_value() {
 fn errors() {
     use ParseErrorKind::*;
     check_err(&[
-        ("", Empty, 0),
-        ("   ", Empty, 3),
-        ("-", Empty, 1),
-        (" + ", Empty, 2),
-        ("+ 5", InvalidCharacter(' '), 1),
-        ("十円", InvalidCharacter('円'), 3),
-        ("一 万", InvalidCharacter(' '), 3),
-        ("5-3", InvalidCharacter('-'), 1),
-        ("百千", MisplacedUnit, 3),
-        ("十十", MisplacedUnit, 3),
-        ("一万二億", MisplacedUnit, 9),
-        ("一万万", MisplacedUnit, 6),
-        ("一億万", MisplacedUnit, 6),
-        ("12百", MisplacedDigit, 0),
-        ("〇百", MisplacedDigit, 0),
-        ("十25", MisplacedDigit, 3),
-        ("1億12345万", MisplacedDigit, 4),
-        ("1万20000", MisplacedDigit, 4),
-        ("10000無量大数", OutOfRange, 0),
+        ("", Empty),
+        ("   ", Empty),
+        ("-", Empty),
+        (" + ", Empty),
+        ("+ 5", InvalidCharacter(' ')),
+        ("十円", InvalidCharacter('円')),
+        ("一 万", InvalidCharacter(' ')),
+        ("5-3", InvalidCharacter('-')),
+        ("百千", MisplacedUnit),
+        ("十十", MisplacedUnit),
+        ("一万二億", MisplacedUnit),
+        ("一万万", MisplacedUnit),
+        ("一億万", MisplacedUnit),
+        ("12百", MisplacedDigit),
+        ("〇百", MisplacedDigit),
+        ("十25", MisplacedDigit),
+        ("1億12345万", MisplacedDigit),
+        ("1万20000", MisplacedDigit),
+        ("10000無量大数", OutOfRange),
         // 桁区切り
-        (",1", MisplacedSeparator, 0),
-        ("1,,2", MisplacedSeparator, 2),
-        ("1,", MisplacedSeparator, 1),
-        ("1,万", MisplacedSeparator, 1),
-        ("千,5", MisplacedSeparator, 3),
-        ("1.2,3万", MisplacedSeparator, 3),
+        (",1", MisplacedSeparator),
+        ("1,,2", MisplacedSeparator),
+        ("1,", MisplacedSeparator),
+        ("1,万", MisplacedSeparator),
+        ("千,5", MisplacedSeparator),
+        ("1.2,3万", MisplacedSeparator),
         // 小数点
-        (".5万", MisplacedSeparator, 0),
-        ("1.万", MisplacedSeparator, 1),
-        ("1.", MisplacedSeparator, 1),
-        ("1..5万", MisplacedSeparator, 2),
-        ("1.5千", MisplacedSeparator, 1),
-        ("千2.5万", MisplacedSeparator, 4),
-        ("1.5万2000", MisplacedDigit, 6),
-        ("1.5万千", MisplacedUnit, 6),
-        ("1.5億3万", MisplacedDigit, 6),
-        ("1.5", NotAnInteger, 0),
-        ("1.23456万", NotAnInteger, 0),
+        (".5万", MisplacedSeparator),
+        ("1.万", MisplacedSeparator),
+        ("1.", MisplacedSeparator),
+        ("1..5万", MisplacedSeparator),
+        ("1.5千", MisplacedSeparator),
+        ("千2.5万", MisplacedSeparator),
+        ("1.5万2000", MisplacedDigit),
+        ("1.5万千", MisplacedUnit),
+        ("1.5億3万", MisplacedDigit),
+        ("1.5", NotAnInteger),
+        ("1.23456万", NotAnInteger),
     ]);
     let too_long = format!("1{}", "0".repeat(72));
-    check_err(&[(&too_long, OutOfRange, 0)]);
+    check_err(&[(&too_long, OutOfRange)]);
 }
 
 #[test]
 fn error_display() {
     let err = to_arabic("十円").unwrap_err();
-    assert_eq!(
-        err.to_string(),
-        "使えない文字「円」があります（バイト位置 3）"
-    );
+    assert_eq!(err.to_string(), "使えない文字「円」があります");
 }
