@@ -29,6 +29,8 @@ use numeral::Numeral;
 /// assert_eq!(to_arabic("二千二十五").unwrap(), "2025");
 /// assert_eq!(to_arabic("二〇二五").unwrap(), "2025");
 /// assert_eq!(to_arabic("1億2345万6789").unwrap(), "123456789");
+/// assert_eq!(to_arabic("1,234万").unwrap(), "12340000");
+/// assert_eq!(to_arabic("1.5万").unwrap(), "15000");
 /// assert_eq!(to_arabic("-三千万").unwrap(), "-30000000");
 /// assert_eq!(to_arabic("壱萬弐千").unwrap(), "12000");
 /// assert!(to_arabic("十円").is_err());

@@ -147,6 +147,11 @@ pub(crate) const fn is_comma(c: char) -> bool {
     matches!(c, ',' | '，')
 }
 
+/// 小数点として扱う文字（`to_arabic` のみ）。
+pub(crate) const fn is_point(c: char) -> bool {
+    matches!(c, '.' | '．')
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
