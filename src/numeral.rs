@@ -1,4 +1,4 @@
-//! 内部表現 [`Numeral`] と、アラビア数字の文字列の読み書き。
+//! 内部表現 [`Numeral`] と、アラビア数字の文字列の読み書き
 
 use alloc::string::String;
 use alloc::vec::Vec;
@@ -6,28 +6,29 @@ use alloc::vec::Vec;
 use crate::error::{ParseError, ParseErrorKind};
 use crate::units::{ARABIC_DIGITS, arabic_digit_value, is_comma, is_minus, is_plus};
 
-/// 節（4 桁の組）の数。節 k は 10^(4k) の位から始まる 4 桁。
+/// 節（4桁の組）の数
+/// 節kは 10^(4k) の位から始まる4桁
 ///
-/// k = 0..=17 なので、最上位は無量大数（10^68）の節。
+/// k = 0..=17 なので、最上位は無量大数（10^68）の節
 pub(crate) const GROUPS: usize = 18;
 
-/// 扱える最大桁数。絶対値は 10^72 未満なので 72 桁。
+/// 扱える最大桁数。絶対値は 10^72 未満なので 72 桁
 pub(crate) const MAX_DIGITS: usize = GROUPS * 4;
 
-/// 符号付きの整数を、10 進の桁の並びのまま持つ。
+/// 符号付きの整数を、10 進の桁の並びのまま持つ
 ///
-/// 入力も出力も文字列なので、数値型（`i64` / `u128` など）には変換しない。
-/// 桁の並びで持つので、`u128`（約 3.4×10^38）を超える無量大数の位まで扱える。
-// 0 のときは必ず `negative == false` にする（-0 を作らない）。
+/// 0のときは必ず `negative == false` にする（-0を作らない）
 #[derive(Debug)]
 pub(crate) struct Numeral {
     negative: bool,
-    /// 各桁（0..=9）。`digits[i]` が 10^i の位（下位から並ぶ）。
+    /// 各桁（0..=9）
+    /// `digits[i]` が 10^i の位（下位から並ぶ）
     digits: [u8; MAX_DIGITS],
 }
 
 impl Numeral {
-    /// 符号と各桁から作る。0 なら符号を正にそろえる（正規化）。
+    /// 符号と各桁から作る
+    /// 0なら符号を正にそろえる
     pub(crate) fn new(negative: bool, digits: [u8; MAX_DIGITS]) -> Self {
         debug_assert!(digits.iter().all(|&d| d < 10), "each digit must be < 10");
         let is_zero = digits.iter().all(|&d| d == 0);
@@ -37,12 +38,14 @@ impl Numeral {
         }
     }
 
-    /// 負の数なら `true`。0 は負ではない。
+    /// 負の数ならtrue
+    /// 0は負ではない
     pub(crate) const fn is_negative(&self) -> bool {
         self.negative
     }
 
-    /// 0 でない最上位の桁までの各桁（下位から）。0 のときは空。
+    /// 0でない最上位の桁までの各桁（下位から）
+    /// 0のときは空
     pub(crate) fn significant_digits(&self) -> &[u8] {
         let len = self
             .digits
@@ -52,21 +55,23 @@ impl Numeral {
         &self.digits[..len]
     }
 
-    /// 0 でない最上位の節の位置。0 のときは `None`。
+    /// 0でない最上位の節の位置
+    /// 0のときはnull
     pub(crate) fn top_group(&self) -> Option<usize> {
         let len = self.significant_digits().len();
         len.checked_sub(1).map(|i| i / 4)
     }
 
-    /// 節 k の 4 桁。一・十・百・千の位の順に並ぶ。
+    /// 節kの4桁
+    /// 一・十・百・千の位の順に並ぶ
     pub(crate) fn group(&self, k: usize) -> [u8; 4] {
         core::array::from_fn(|i| self.digits[4 * k + i])
     }
 
-    /// アラビア数字の文字列を読む。
+    /// アラビア数字の文字列を読む
     ///
-    /// 前後の空白・先頭の符号・全角数字・桁区切り（数字と数字の間のみ）を受け付ける。
-    /// 先頭の 0 は無視する（`007` は 7）。
+    /// 前後の空白・先頭の符号・全角数字・桁区切り（数字と数字の間のみ）を受け付ける
+    /// 先頭の0は無視する（`007` は `7`）
     pub(crate) fn parse_arabic(input: &str) -> Result<Self, ParseError> {
         let (negative, body) = split_sign(input);
 
