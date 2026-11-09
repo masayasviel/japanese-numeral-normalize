@@ -53,6 +53,15 @@ pub(crate) const DAIJI_FULL_SMALL_UNITS: [char; 3] = ['拾', '佰', '阡'];
 
 // --- 入力用 ---------------------------------------------------------------------
 
+/// 入力でのみ受け付ける大きな単位の異体字・別表記。
+const LARGE_UNIT_ALIASES: [(&str, usize); 5] = [
+    ("萬", 1),
+    ("秭", 6),
+    ("穰", 7),
+    ("那由他", 15),
+    ("無量大數", 17),
+];
+
 /// 算用数字（半角・全角）1 文字を値にする。
 // const fn の中では TryFrom が使えないので `as` で変換する（値は 0〜9 なので切り捨ては起きない）
 #[allow(clippy::cast_possible_truncation)]
@@ -63,6 +72,61 @@ pub(crate) const fn arabic_digit_value(c: char) -> Option<u8> {
         '０'..='９' => (c as u32 - '０' as u32) as u8,
         _ => return None,
     })
+}
+
+/// 1 文字の数字を値にする。算用数字（半角・全角）、漢数字、大字・異体字に対応。
+pub(crate) const fn digit_value(c: char) -> Option<u8> {
+    if let Some(d) = arabic_digit_value(c) {
+        return Some(d);
+    }
+    Some(match c {
+        '〇' | '零' => 0,
+        '一' | '壱' | '壹' | '弌' => 1,
+        '二' | '弐' | '貳' | '貮' | '弍' => 2,
+        '三' | '参' | '參' | '弎' => 3,
+        '四' | '肆' | '亖' => 4,
+        '五' | '伍' => 5,
+        '六' | '陸' => 6,
+        '七' | '漆' => 7,
+        '八' | '捌' => 8,
+        '九' | '玖' => 9,
+        _ => return None,
+    })
+}
+
+/// 十・百・千（と大字・異体字）を 10 の指数（1, 2, 3）にする。
+pub(crate) const fn small_unit_power(c: char) -> Option<u8> {
+    Some(match c {
+        '十' | '拾' | '什' => 1,
+        '百' | '陌' | '佰' => 2,
+        '千' | '阡' | '仟' => 3,
+        _ => return None,
+    })
+}
+
+/// 廿（二十）・卅（三十）・卌（四十）を十の位の数字にする。
+pub(crate) const fn tens_compound(c: char) -> Option<u8> {
+    Some(match c {
+        '廿' => 2,
+        '卅' => 3,
+        '卌' => 4,
+        _ => return None,
+    })
+}
+
+/// `s` の先頭にある大きな単位を探し、`(k, バイト長)` を返す。
+///
+/// 恒河沙・不可思議などは複数文字なので、1 文字ずつではなく前方一致で探す。
+pub(crate) fn match_large_unit(s: &str) -> Option<(usize, usize)> {
+    let canonical = LARGE_UNITS
+        .iter()
+        .enumerate()
+        .skip(1) // k = 0 は単位なし（空文字列）なので除く
+        .map(|(k, name)| (*name, k));
+    canonical
+        .chain(LARGE_UNIT_ALIASES)
+        .find(|(name, _)| s.starts_with(name))
+        .map(|(name, k)| (k, name.len()))
 }
 
 /// 負号として扱う文字（先頭のみ）。
@@ -96,5 +160,43 @@ mod tests {
         for (value, &c) in (0..).zip(&ARABIC_DIGITS) {
             assert_eq!(arabic_digit_value(c), Some(value));
         }
+    }
+
+    #[test]
+    fn digits() {
+        assert_eq!(digit_value('7'), Some(7));
+        assert_eq!(digit_value('７'), Some(7));
+        assert_eq!(digit_value('七'), Some(7));
+        assert_eq!(digit_value('漆'), Some(7));
+        assert_eq!(digit_value('十'), None);
+        // 出力用の表と入力用の関数が食い違っていないこと
+        for table in [ARABIC_DIGITS, KANJI_DIGITS, DAIJI_DIGITS, DAIJI_FULL_DIGITS] {
+            for (value, &c) in (0..).zip(&table) {
+                assert_eq!(digit_value(c), Some(value), "{c}");
+            }
+        }
+    }
+
+    #[test]
+    fn small_units() {
+        for table in [SMALL_UNITS, DAIJI_SMALL_UNITS, DAIJI_FULL_SMALL_UNITS] {
+            for (power, &c) in (1..).zip(&table) {
+                assert_eq!(small_unit_power(c), Some(power), "{c}");
+            }
+        }
+    }
+
+    #[test]
+    fn large_units() {
+        for (k, name) in LARGE_UNITS.iter().enumerate().skip(1) {
+            assert_eq!(match_large_unit(name), Some((k, name.len())));
+        }
+        assert_eq!(match_large_unit("恒河沙一"), Some((13, "恒河沙".len())));
+        assert_eq!(match_large_unit("萬"), Some((1, "萬".len())));
+        assert_eq!(match_large_unit("那由他"), Some((15, "那由他".len())));
+        // 𥝱 は UTF-8 で 4 バイト
+        assert_eq!(match_large_unit("𥝱"), Some((6, 4)));
+        assert_eq!(match_large_unit("円"), None);
+        assert_eq!(match_large_unit(""), None);
     }
 }

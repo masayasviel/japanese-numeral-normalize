@@ -10,11 +10,8 @@ extern crate alloc;
 
 mod error;
 mod format;
-// 公開 API から使うまでは「使われていない」という警告が出るので、一時的に抑える。
-// allow ではなく expect にしておくと、使い始めて警告が出なくなったときに消し忘れを教えてくれる。
-// テストからは使っているので、テスト以外のビルドだけに付ける。
-#[cfg_attr(not(test), expect(dead_code, reason = "to_arabic（#15）から使う"))]
 mod numeral;
+mod parse;
 mod units;
 
 use alloc::string::String;
@@ -23,6 +20,26 @@ pub use error::{ParseError, ParseErrorKind};
 pub use format::KanjiFormat;
 
 use numeral::Numeral;
+
+/// 漢数字（算用数字との混在も可）をアラビア数字の文字列にする。
+///
+/// ```
+/// use japanese_numeral_normalize::to_arabic;
+///
+/// assert_eq!(to_arabic("二千二十五").unwrap(), "2025");
+/// assert_eq!(to_arabic("二〇二五").unwrap(), "2025");
+/// assert_eq!(to_arabic("1億2345万6789").unwrap(), "123456789");
+/// assert_eq!(to_arabic("-三千万").unwrap(), "-30000000");
+/// assert_eq!(to_arabic("壱萬弐千").unwrap(), "12000");
+/// assert!(to_arabic("十円").is_err());
+/// ```
+///
+/// # Errors
+///
+/// 数として読めない場合は [`ParseError`] を返す。
+pub fn to_arabic(input: &str) -> Result<String, ParseError> {
+    Ok(parse::parse(input)?.to_arabic())
+}
 
 /// アラビア数字の文字列を漢数字にする。書き方は `format` で選ぶ。
 ///
