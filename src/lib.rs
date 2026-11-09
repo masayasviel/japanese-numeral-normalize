@@ -1,3 +1,23 @@
+//! アラビア数字 ⇔ 漢数字の相互変換ライブラリ
+//!
+//! - [`to_arabic`]: 漢数字（算用数字との混在も可）→ アラビア数字
+//! - [`to_kanji`]: アラビア数字 → 漢数字（書き方は [`KanjiFormat`] で選ぶ）
+//!
+//! ```
+//! use japanese_numeral_normalize::{to_arabic, to_kanji, KanjiFormat};
+//!
+//! // 漢数字（算用数字との混在も可）→ アラビア数字
+//! assert_eq!(to_arabic("二千二十五").unwrap(), "2025");
+//! assert_eq!(to_arabic("二〇二五").unwrap(), "2025");
+//! assert_eq!(to_arabic("1億2345万6789").unwrap(), "123456789");
+//! assert_eq!(to_arabic("1.5万").unwrap(), "15000");
+//!
+//! // アラビア数字 → 漢数字（書き方は引数で選ぶ）
+//! assert_eq!(to_kanji("12345", KanjiFormat::Standard).unwrap(), "一万二千三百四十五");
+//! assert_eq!(to_kanji("12345", KanjiFormat::Daiji).unwrap(), "壱万弐千参百四拾五");
+//! assert_eq!(to_kanji("12345", KanjiFormat::Mixed).unwrap(), "1万2345");
+//! ```
+
 #![no_std]
 
 extern crate alloc;
