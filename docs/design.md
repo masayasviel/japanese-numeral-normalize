@@ -16,8 +16,9 @@
 | 項目 | 決定 | 理由 |
 | --- | --- | --- |
 | 言語 / edition | Rust 2024（rust-version 1.97） | compose の `rust:1.97-slim` に合わせる |
-| 依存クレート | なし | ロジックを全部自分で書いて学ぶ。ビルドも軽い |
-| 実行環境 | `#![no_std]` + `alloc` | `String` 以外の OS 機能は不要。将来 WASM 化しやすい |
+| 依存クレート | なし（WASM バインディングの `wasm/` だけ `wasm-bindgen` を使う） | ロジックを全部自分で書いて学ぶ。ビルドも軽い |
+| 実行環境 | `#![no_std]` + `alloc` | `String` 以外の OS 機能は不要。そのまま WASM にできる |
+| WASM | 別クレート `wasm/` で `wasm-bindgen` の薄いラッパーを作り、`wasm-pack` で npm パッケージにする | 本体を依存なし・`no_std` のまま保つ |
 | 入出力 | 文字列 → 文字列。数値型には変換しない | 目的は表記の変換。数として計算したいときは、利用側が `to_arabic` の結果を `str::parse` すればよい |
 | 扱える範囲 | 絶対値が 10^72 未満（無量大数の位まで） | 漢数字の単位で表せる全範囲。数値型を通さず桁の並びのまま扱うので、`u128`（約 3.4×10^38）の上限を受けない |
 | エラー | `Result` で返し、原因の種類と位置を持つ | 不正入力を黙って変な数にしない |
@@ -213,6 +214,7 @@ src/
   error.rs     ParseError
 tests/         結合テスト（表駆動・ラウンドトリップ）
 examples/      CLI サンプル
+wasm/          WASM バインディング（toArabic / toKanji / KanjiFormat を JS に公開）
 ```
 
 ## 9. 実装ステップ（issue / PR）
@@ -231,7 +233,7 @@ examples/      CLI サンプル
 
 - 文章中の漢数字を検出・置換（geolonia/japanese-numeral の `findKanjiNumbers` 相当）。
   `正`（10^40）や `極` が普通の単語にも現れるので、別途ルール設計が必要。
-- WASM / npm バインディング、crates.io 公開
+- crates.io / npm 公開
 
 ## 参考
 

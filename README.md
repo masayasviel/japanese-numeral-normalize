@@ -16,6 +16,8 @@ make lint
 make test
 # build
 make build
+# WebAssembly（wasm/pkg に npm パッケージを作る）
+make wasm
 ```
 
 ## Usage
@@ -44,4 +46,20 @@ assert_eq!(to_kanji("10000000", KanjiFormat::ExplicitOneBeforeThousand)?, "一�
 ```sh
 # サンプル: アラビア数字は全形式の漢数字に、漢数字はアラビア数字にする
 docker compose run --rm app cargo run --example convert -- 12345 一億二千万 1.5万
+```
+
+### WebAssembly
+
+`make wasm` で `wasm/pkg` に ES モジュールと型定義を作成
+
+```js
+import init, { toArabic, toKanji, KanjiFormat } from "./wasm/pkg/japanese_numeral_normalize_wasm.js";
+
+// ブラウザ。Node.js は initSync({ module: readFileSync(".../japanese_numeral_normalize_wasm_bg.wasm") })
+await init();
+
+toArabic("二千二十五");  // "2025"
+toKanji("12345");  // "一万二千三百四十五"（format を省略すると Standard）
+toKanji("12345", KanjiFormat.Daiji);  // "壱万弐千参百四拾五"
+toArabic("十円");  // Error: 使えない文字「円」があります
 ```

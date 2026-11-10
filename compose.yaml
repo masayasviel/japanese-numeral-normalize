@@ -5,6 +5,8 @@ services:
     volumes:
       - .:/app
       - target:/app/target
+      - registry:/usr/local/cargo/registry
 
 volumes:
   target:
+  registry:
