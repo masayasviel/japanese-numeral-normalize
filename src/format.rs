@@ -1,4 +1,4 @@
-//! アラビア数字 → 漢数字（[`to_kanji`](crate::to_kanji) の書き出し）。
+//! アラビア数字 → 漢数字
 
 use alloc::string::String;
 
@@ -8,7 +8,7 @@ use crate::units::{
     KANJI_DIGITS, LARGE_UNITS, SMALL_UNITS,
 };
 
-/// 漢数字の書き方。[`to_kanji`](crate::to_kanji) の引数で選ぶ。
+/// 漢数字の書き方。[`to_kanji`](crate::to_kanji) の引数で選ぶ
 ///
 /// | 形式 | 12345 | 10000000 | 1100 | 0 |
 /// | --- | --- | --- | --- | --- |
@@ -18,29 +18,27 @@ use crate::units::{
 /// | [`Daiji`](Self::Daiji) | 壱万弐千参百四拾五 | 壱千万 | 壱千壱百 | 零 |
 /// | [`DaijiFull`](Self::DaijiFull) | 壱萬弐阡参佰肆拾伍 | 壱阡萬 | 壱阡壱佰 | 零 |
 /// | [`Mixed`](Self::Mixed) | 1万2345 | 1000万 | 1100 | 0 |
-// `#[non_exhaustive]` を付けると、クレートの外では match に `_ =>` が必須になる。
-// 形式を後から追加しても利用側のコードが壊れない。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 #[non_exhaustive]
 pub enum KanjiFormat {
     /// 単位式（既定）: `一万二千三百四十五`
     ///
-    /// 十・百・千の前の「一」は省略し（`千万`）、万以上の単位の前の「一」は書く（`一億`）。
+    /// 十・百・千の前の「一」は省略し（`千万`）、万以上の単位の前の「一」は書く（`一億`）
     #[default]
     Standard,
     /// 単位式で、千の前にも「一」を書く: `一千万`, `一千百`
     ///
-    /// 金額などで使う書き方。十・百の前には書かない（`百十`）。それ以外は [`Standard`](Self::Standard) と同じ。
+    /// 金額などで使う書き方。十・百の前には書かない（`百十`）。それ以外は [`Standard`](Self::Standard) と同じ
     ExplicitOneBeforeThousand,
     /// 位取り式: `一二三四五`, `二〇二五`
     Positional,
     /// 大字: `壱万弐千参百四拾五`
     ///
-    /// 法令で使う 壱・弐・参・拾 を使い、改ざん防止のため十・百・千の前にも必ず「壱」を書く。
+    /// 法令で使う 壱・弐・参・拾 を使い、改ざん防止のため十・百・千の前にも必ず「壱」を書く
     Daiji,
     /// すべて大字: `壱萬弐阡参佰肆拾伍`
     ///
-    /// 祝儀袋などで見られる書き方。数字は 零壱弐参肆伍陸漆捌玖、十百千は 拾佰阡、万は 萬。
+    /// 祝儀袋などで見られる書き方。数字は 零壱弐参肆伍陸漆捌玖、十百千は 拾佰阡、万は 萬
     /// 億以上には大字の別の字がないので、標準と同じ字を使う。
     DaijiFull,
     /// 算用数字と単位の混在: `1万2345`, `1億2000万`
@@ -48,7 +46,7 @@ pub enum KanjiFormat {
 }
 
 impl Numeral {
-    /// 指定した形式の漢数字にする。負の数には先頭に `-` を付ける。
+    /// 指定した形式の漢数字にする。負の数には先頭に `-` を付ける
     pub(crate) fn to_kanji(&self, format: KanjiFormat) -> String {
         let mut out = String::new();
         if self.is_negative() {
@@ -68,7 +66,7 @@ impl Numeral {
     }
 }
 
-/// 単位式の書き方の違いをまとめた設定。ロジックは [`write_units`] で共通。
+/// 単位式の書き方の違いをまとめた設定。ロジックは [`write_units`] で共通
 struct UnitStyle {
     /// 0〜9 の字
     digits: [char; 10],
@@ -107,7 +105,7 @@ const DAIJI_FULL: UnitStyle = UnitStyle {
     ten_thousand: "萬",
 };
 
-/// 単位式: 節ごとに「千百十一」で書き、大きな単位を付ける。
+/// 単位式: 節ごとに「千百十一」で書き、大きな単位を付ける
 fn write_units(out: &mut String, n: &Numeral, style: &UnitStyle) {
     let Some(top) = n.top_group() else {
         out.push(style.digits[0]);
@@ -128,7 +126,7 @@ fn write_units(out: &mut String, n: &Numeral, style: &UnitStyle) {
     }
 }
 
-/// 1 つの節を千・百・十・一の位の順に書く。`group` は一・十・百・千の位の順に並ぶ。
+/// 1 つの節を千・百・十・一の位の順に書く。`group` は一・十・百・千の位の順に並ぶ
 fn write_group(out: &mut String, group: [u8; 4], style: &UnitStyle) {
     for (place, &d) in group.iter().enumerate().rev() {
         let d = usize::from(d);
@@ -148,7 +146,7 @@ fn write_group(out: &mut String, group: [u8; 4], style: &UnitStyle) {
     }
 }
 
-/// 位取り式: 各桁を漢数字に置き換えるだけ。
+/// 位取り式: 各桁を漢数字に置き換えるだけ
 fn write_positional(out: &mut String, n: &Numeral) {
     let digits = n.significant_digits();
     if digits.is_empty() {
@@ -159,7 +157,7 @@ fn write_positional(out: &mut String, n: &Numeral) {
     }
 }
 
-/// 混在: 節を算用数字で書き、大きな単位を付ける。
+/// 混在: 節を算用数字で書き、大きな単位を付ける
 fn write_mixed(out: &mut String, n: &Numeral) {
     let Some(top) = n.top_group() else {
         out.push(ARABIC_DIGITS[0]);
